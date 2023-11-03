@@ -22,6 +22,7 @@ import Data.Char
     '('     { TOpen }
     ')'     { TClose }
     '->'    { TArrow }
+    ','     { TComma }
     VAR     { TVar $$ }
     TYPEE   { TTypeE }
     DEF     { TDef }
@@ -119,6 +120,7 @@ data Token = TVar String
                | TClose 
                | TColon
                | TArrow
+               | TComma
                | TEquals
                | TEOF
                | TLet

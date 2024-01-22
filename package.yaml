@@ -1,10 +1,10 @@
-name:                TP3
+name:                TP-FINAL
 version:             0.1.0.0
 github:              "githubuser/TP3"
 license:             BSD3
-author:              "Author name here"
+author:              "Marcos Cassinerio"
 maintainer:          "example@example.com"
-copyright:           "2020 Author name here"
+copyright:           "2024 Marcos Cassinerio"
 
 extra-source-files:
 - README.md
@@ -43,7 +43,7 @@ library:
   - src 
 
 executables:
-  TP3-exe:
+  TP-FINAL-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -51,6 +51,6 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - TP3
+    - TP-FINAL
     build-tools:
     - happy

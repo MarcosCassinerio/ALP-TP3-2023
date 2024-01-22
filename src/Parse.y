@@ -7,80 +7,51 @@ import Data.Char
 }
 
 %monad { P } { thenP } { returnP }
-%name parseStmt Def
+%name parseStmt Inter
 %name parseStmts Defs
-%name term Exp
 
 %tokentype { Token }
 %lexer {lexer} {TEOF}
 
 %token
-    '='     { TEquals }
-    ':'     { TColon }
-    '\\'    { TAbs }
-    '.'     { TDot }
-    '('     { TOpen }
-    ')'     { TClose }
-    '->'    { TArrow }
-    ','     { TComma }
-    VAR     { TVar $$ }
-    TYPEE   { TTypeE }
-    DEF     { TDef }
-    LET     { TLet }
-    IN      { TIn }
-    UNIT    { TUnit }
-    TUNIT   { TTUnit }
-    FST     { TFst }
-    SND     { TSnd }
-    TYPEN   { TNat }
-    REC     { TRec }
-    SUC     { TSuc }
-    ZERO    { TZero }
-    
-
-%right VAR
-%left '=' 
-%right '->'
-%right '\\' '.' LET IN 
-%right REC
-%right SUC
-%right SND FST
+    '['             { TOpen }
+    ']'             { TClose }
+    ','             { TComma }
+    VAR             { TVar $$ }
+    VAL             { TVal $$ }
+    DEFINEP         { TDefineP }
+    DEFINEG         { TDefineG }
+    DEBTP           { TDebtP }
+    DEBTG           { TDebtG }
+    EXPENSE         { TExpense }
+    CALCULATE       { TCalculate }
+    CALCULATEALL    { TCalculateAll }
+    REGISTRY        { TRegistry }
+    MEMBERS         { TMembers }
 
 %%
 
-Def     :  Defexp                      { $1 }
-        |  Exp	                       { Eval $1 }
-Defexp  : DEF VAR '=' Exp              { Def $2 $4 } 
-
-Exp     :: { LamTerm }
-        : '\\' VAR ':' Type '.' Exp    { LAbs $2 $4 $6 }
-        | NAbs                         { $1 }
-        | LET VAR '=' Exp IN Exp       { LLet $2 $4 $6 }
-        | '(' Exp ',' Exp ')'          { LPair $2 $4 }
-        | FST Exp                      { LFst  $2 }
-        | SND Exp                      { LSnd  $2 }
-        | REC Atom Atom Atom           { LRec  $2 $3 $4 }
-        | SUC Atom                     { LSuc  $2 }
+Def     :: { Exp }
+        :  DEFINEP VAR                 { DefineP $2 }
+        |  DEFINEG VAR '[' Names ']'   { DefineG $2 $4 }
+        |  DEBTP VAR VAL               { DebtP $2 $3 }
+        |  DEBTG VAR VAR VAL           { DebtG $2 $3 $4 }
+        |  EXPENSE VAR VAL             { Expense $2 $3}
         
-NAbs    :: { LamTerm }
-        : NAbs Atom                    { LApp $1 $2 }
-        | Atom                         { $1 }
+Names   :: { [String] }
+        : VAR ',' Names                { $1 : $3 }
+        | VAR                          { [$1] }
 
-Atom    :: { LamTerm }
-        : VAR                          { LVar $1 }  
-        | '(' Exp ')'                  { $2 }
-        | UNIT                         { LUnit }
-        | ZERO                         { LZero } 
-
-Type    : TYPEE                        { EmptyT }
-        | Type '->' Type               { FunT $1 $3 }
-        | '(' Type ')'                 { $2 }
-        | TUNIT                        { UnitT }
-        | '(' Type ',' Type ')'        { PairT $2 $4 }
-        | TYPEN                        { NatT }
-
-Defs    : Defexp Defs                  { $1 : $2 }
+Defs    : Def Defs                     { Def $1 : $2 }
         |                              { [] }
+
+Inter   : Op                           { Eval $1 }
+
+Op      :: { Exp }
+        : CALCULATE VAR                { Calculate $2 }
+        | CALCULATEALL                 { CalculateAll }
+        | REGISTRY VAR                 { Registry $2 }
+        | MEMBERS VAR                  { Members $2 }
      
 {
 
@@ -112,73 +83,49 @@ happyError :: P a
 happyError = \ s i -> Failed $ "Línea "++(show (i::LineNumber))++": Error de parseo\n"++(s)
 
 data Token = TVar String
-               | TTypeE
-               | TDef
-               | TAbs
-               | TDot
-               | TOpen
-               | TClose 
-               | TColon
-               | TArrow
-               | TComma
-               | TEquals
-               | TEOF
-               | TLet
-               | TIn
-               | TUnit
-               | TTUnit
-               | TFst
-               | TSnd
-               | TNat
-               | TZero
-               | TSuc
-               | TRec
-               deriving Show
+           | TVal Int
+           | TOpen
+           | TClose
+           | TComma
+           | TDefineP
+           | TDefineG
+           | TDebtP
+           | TDebtG
+           | TExpense
+           | TCalculate
+           | TCalculateAll
+           | TRegistry
+           | TMembers
+           | TEOF
+           deriving Show
 
 ----------------------------------
 lexer cont s = case s of
                     [] -> cont TEOF []
-                    ('\n':s)  ->  \line -> lexer cont s (line + 1)
+                    ('\n':s)  	->  \line -> lexer cont s (line + 1)
                     (c:cs)
                           | isSpace c -> lexer cont cs
                           | isAlpha c -> lexVar (c:cs)
-                    ('-':('-':cs)) -> lexer cont $ dropWhile ((/=) '\n') cs
-                    ('{':('-':cs)) -> consumirBK 0 0 cont cs	
-                    ('-':('}':cs)) -> \ line -> Failed $ "Línea "++(show line)++": Comentario no abierto"
-                    ('-':('>':cs)) -> cont TArrow cs
-                    ('\\':cs)-> cont TAbs cs
-                    ('.':cs) -> cont TDot cs
-                    ('(':cs) -> cont TOpen cs
-                    ('-':('>':cs)) -> cont TArrow cs
-                    (')':cs) -> cont TClose cs
-                    (':':cs) -> cont TColon cs
-                    ('=':cs) -> cont TEquals cs
-                    (',':cs) -> cont TComma cs
-                    ('0':cs) -> cont TZero cs
-                    unknown -> \line -> Failed $ 
+                          | isDigit c -> lexNum (c:cs)
+                    ('[':cs) 	-> cont TOpen cs
+                    (']':cs) 	-> cont TClose cs
+                    (',':cs) 	-> cont TComma cs
+                    unknown 	-> \line -> Failed $ 
                      "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
-                              ("E",rest)    -> cont TTypeE rest
-                              ("def",rest)  -> cont TDef rest
-                              ("let",rest)  -> cont TLet rest
-                              ("in",rest)   -> cont TIn rest
-                              ("unit",rest) -> cont TUnit rest
-                              ("Unit",rest) -> cont TTUnit rest
-                              ("fst",rest)  -> cont TFst rest
-                              ("Nat",rest)  -> cont TNat rest
-                              ("suc",rest)  -> cont TSuc rest
-                              ("R",rest)    -> cont TRec rest
-                              (var,rest)    -> cont (TVar var) rest
-                          consumirBK anidado cl cont s = case s of
-                              ('-':('-':cs)) -> consumirBK anidado cl cont $ dropWhile ((/=) '\n') cs
-                              ('{':('-':cs)) -> consumirBK (anidado+1) cl cont cs	
-                              ('-':('}':cs)) -> case anidado of
-                                                  0 -> \line -> lexer cont cs (line+cl)
-                                                  _ -> consumirBK (anidado-1) cl cont cs
-                              ('\n':cs) -> consumirBK anidado (cl+1) cont cs
-                              (_:cs) -> consumirBK anidado cl cont cs     
+                              ("DEFINEP",rest)    	-> cont TDefineP rest
+                              ("DEFINEG",rest)  	-> cont TDefineG rest
+                              ("DEBTP",rest)  		-> cont TDebtP rest
+                              ("DEBTG",rest)   		-> cont TDebtG rest
+                              ("EXPENSE",rest)          -> cont TExpense rest
+                              ("CALCULATE",rest)  	-> cont TCalculate rest
+                              ("CALCULATEALL",rest)	-> cont TCalculateAll rest
+                              ("REGISTRY",rest)         -> cont TRegistry rest
+                              ("MEMBERS", rest)         -> cont TMembers rest
+                              (var,rest)    		-> cont (TVar var) rest
+                          lexNum cs = let (num,rest) = span isDigit cs 
+                                      in cont (TVal (read num)) rest
                                            
 stmts_parse s = parseStmts s 1
 stmt_parse s = parseStmt s 1
-term_parse s = term s 1
 }

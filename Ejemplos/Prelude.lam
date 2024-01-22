@@ -1,3 +1,12 @@
-def I = \x:E. x
-def K = \x:E.\y:E.x
-def S = \x:E->E->E.\y:E->E.\z:E.(x z) (y z)
+DEFINEP Pepe
+DEFINEP Jose
+DEFINEP Dante
+DEFINEG Pibes [Pepe, Jose, Dante]
+DEFINEG NoDante [Pepe, Jose]
+DEBTP Dante 100
+DEBTP Jose 50
+DEBTG Dante Pibes 40
+DEBTG Pepe NoDante 30
+DEBTG Jose Pibes 80
+EXPENSE Pepe 50
+EXPENSE NoDante 60
